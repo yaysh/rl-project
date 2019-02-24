@@ -10,13 +10,13 @@ def one_hot_encode(size, values):
     vector = np.array(values, dtype=int).reshape(-1)
     return np.eye(size, dtype=int)[vector]
 
-def update_states(states, state):
-    states = np.delete(states, 0, axis=2)
-    states = np.concatenate((states, state[..., np.newaxis]), axis=2)
-    return states
+def update_state_arr(state, frame):
+    state = np.delete(state, 0, axis=2)
+    state = np.concatenate((state, frame[..., np.newaxis]), axis=2)
+    return state
 
-def create_states_arr(state):
-    states = state[..., np.newaxis]
+def create_state_arr(frame):
+    state = frame[..., np.newaxis]
     for i in range(2):
-        states = np.append(states, states, axis=2)
-    return np.stack(states)
+        state = np.append(state, state, axis=2)
+    return np.stack(state)

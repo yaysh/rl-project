@@ -1,6 +1,7 @@
 from keras.layers.core import Flatten
 from keras.layers import Dense, Conv2D, MaxPooling2D
 from keras.models import Sequential, load_model
+from keras.optimizers import Adam
 import numpy as np
 import random
 from collections import deque
@@ -18,26 +19,32 @@ class Agent:
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
+        self.learning_rate = 0.0001
 
     def new_model(self):
         model = Sequential()
 
-        model.add(Conv2D(16,
-            kernel_size=(4, 4),
+        model.add(Conv2D(32,
+            kernel_size=(8, 4),
             strides=(2, 2),
             activation="relu",
             input_shape=self.state_shape))
 
-        model.add(Conv2D(32,
+        model.add(Conv2D(64,
             kernel_size=(4, 4),
             strides=(2, 2),
+            activation="relu"))
+        
+        model.add(Conv2D(64,
+            kernel_size=(3, 3),
+            strides=(1, 1),
             activation="relu"))
 
         model.add(Flatten())
         model.add(Dense(512, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam(lr=self.learning_rate))
 
         self.model = model
         

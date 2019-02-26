@@ -78,25 +78,26 @@ class Agent:
             self._fit(batch, self.gamma, self.n_actions)
     
     def _fit(self, batch, gamma, n_outputs):
+        # Data "wrangling"
         states, actions, rewards, next_states, done = np.hsplit(batch, batch.shape[1])
-        
-        actions = actions[:, 0]
+        actions = util.one_hot_encode(n_outputs, actions[:, 0]) > 0 
         rewards = rewards[:, 0]
         done = done[:, 0]
         states = util.stack(states)
         next_states = util.stack(next_states)
         
+        # Predict future
         predicted_future_Q_values = self.model.predict(next_states)
         predicted_future_rewards = np.amax(predicted_future_Q_values, axis=1)
-        targets = rewards + self.gamma * predicted_future_rewards
         
+        # Calculate expected q values
+        not_done_target = np.logical_not(done) * (rewards + self.gamma * predicted_future_rewards)
+        done_targets = done * rewards
+        targets = not_done_target + done_targets
+        
+        # Set expected q values for the actions in question
         target_Q_values = self.model.predict(states)
-        for i in range(target_Q_values.shape[0]):
-            if done[i]:
-                targets[i] = rewards[i]
-                
-            action = actions[i]
-            target_Q_values[i][action] = targets[i]
+        target_Q_values[actions] = targets
         
         self.model.fit(states, target_Q_values, epochs=1, verbose=0)
             

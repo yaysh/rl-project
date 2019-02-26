@@ -90,42 +90,15 @@ class Agent:
         predicted_future_rewards = np.amax(predicted_future_Q_values, axis=1)
         targets = rewards + self.gamma * predicted_future_rewards
         
-        #print("q values {}".format(predicted_future_Q_values.shape))
-        #print("future rewards {}".format(predicted_future_rewards.shape))
-        #print("rewards {}".format(rewards.shape))
-        #print("targets {}".format(targets.shape))
-        #print("done {}".format(done.shape))
-        #print("actions {}".format(actions.shape))
-        #print("states {}".format(states.shape))
-        #print("next_states {}".format(next_states.shape))
-        
         target_Q_values = self.model.predict(states)
         for i in range(target_Q_values.shape[0]):
             if done[i]:
                 targets[i] = rewards[i]
-                print(targets[i])
-                print(rewards[i])
                 
-            action = actions[i] #[0] # [0] becuase it is within a 1 sized array
+            action = actions[i]
             target_Q_values[i][action] = targets[i]
         
         self.model.fit(states, target_Q_values, epochs=1, verbose=0)
-        
-        #for state, action, reward, next_state, done in batch:
-        #    state = np.stack([state])
-        #    next_state = np.stack([next_state])
-        #    
-        #    target = reward
-        #    
-        #    if not done:
-        #        predicted_future_Q_values = self.model.predict(next_state)[0]
-        #        predicted_future_reward = np.amax(predicted_future_Q_values)
-        #        target = reward + self.gamma * predicted_future_reward
-        #    
-        #    target_Q_values = self.model.predict(state)
-        #    target_Q_values[0][action] = target
-        #    
-        #    self.model.fit(state, target_Q_values, epochs=1, verbose=0)
             
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay

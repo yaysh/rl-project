@@ -10,13 +10,17 @@ import ai_util as util
 
 class Agent:
     
-    def __init__(self, state_shape, n_actions):
+    def __init__(self, state_shape, n_actions, exploit=False):
         self.memory = deque(maxlen=1000)
         self.n_actions = n_actions
         self.state_shape = state_shape
         
         self.gamma = 0.99
-        self.epsilon = 1.0
+        
+        if exploit:
+            self.epsilon = 0.1
+        else:
+            self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
         self.learning_rate = 0.0001
@@ -49,7 +53,11 @@ class Agent:
         self.model = model
         
     def save_model(self, name):
-        self.model.save(name) 
+        try:
+            self.model.save(name)
+        except KeyboardInterrupt:
+            self.model.save(name) 
+            raise
         
     def load_model(self, name):
         self.model = load_model(name) 
@@ -70,42 +78,57 @@ class Agent:
             self._fit(batch, self.gamma, self.n_actions)
     
     def _fit(self, batch, gamma, n_outputs):
-        """
         states, actions, rewards, next_states, done = np.hsplit(batch, batch.shape[1])
-
+        
+        actions = actions[:, 0]
+        rewards = rewards[:, 0]
+        done = done[:, 0]
         states = util.stack(states)
         next_states = util.stack(next_states)
-        actions = util.one_hot_encode(n_outputs, actions) 
-
-        next_Q_values = self.model.predict(next_states)
-        Q_values = rewards + gamma * np.max(next_Q_values, axis=0)
-
-        self.model.fit(
-            states, 
-            actions * Q_values,
-            epochs=1, 
-            batch_size=len(states), 
-            verbose=0
-        )
-        """
-        for state, action, reward, next_state, done in batch:
-            state = np.stack([state])
-            next_state = np.stack([next_state])
+        
+        predicted_future_Q_values = self.model.predict(next_states)
+        predicted_future_rewards = np.amax(predicted_future_Q_values, axis=1)
+        targets = rewards + self.gamma * predicted_future_rewards
+        
+        #print("q values {}".format(predicted_future_Q_values.shape))
+        #print("future rewards {}".format(predicted_future_rewards.shape))
+        #print("rewards {}".format(rewards.shape))
+        #print("targets {}".format(targets.shape))
+        #print("done {}".format(done.shape))
+        #print("actions {}".format(actions.shape))
+        #print("states {}".format(states.shape))
+        #print("next_states {}".format(next_states.shape))
+        
+        target_Q_values = self.model.predict(states)
+        for i in range(target_Q_values.shape[0]):
+            if done[i]:
+                targets[i] = rewards[i]
+                print(targets[i])
+                print(rewards[i])
+                
+            action = actions[i] #[0] # [0] becuase it is within a 1 sized array
+            target_Q_values[i][action] = targets[i]
+        
+        self.model.fit(states, target_Q_values, epochs=1, verbose=0)
+        
+        #for state, action, reward, next_state, done in batch:
+        #    state = np.stack([state])
+        #    next_state = np.stack([next_state])
+        #    
+        #    target = reward
+        #    
+        #    if not done:
+        #        predicted_future_Q_values = self.model.predict(next_state)[0]
+        #        predicted_future_reward = np.amax(predicted_future_Q_values)
+        #        target = reward + self.gamma * predicted_future_reward
+        #    
+        #    target_Q_values = self.model.predict(state)
+        #    target_Q_values[0][action] = target
+        #    
+        #    self.model.fit(state, target_Q_values, epochs=1, verbose=0)
             
-            target = reward
-            
-            if not done:
-                predicted_future_Q_values = self.model.predict(state)[0]
-                predicted_future_reward = np.amax(predicted_future_Q_values)
-                target = reward + self.gamma * predicted_future_reward
-            
-            target_Q_values = self.model.predict(state)
-            target_Q_values[0][action] = target
-            
-            self.model.fit(state, target_Q_values, epochs=1, verbose=0)
-            
-            if self.epsilon > self.epsilon_min:
-                self.epsilon *= self.epsilon_decay
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
     
     def _predict(self, state):
         input_state = np.stack([state])

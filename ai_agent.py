@@ -10,42 +10,31 @@ import ai_util as util
 
 class Agent:
     
-    def __init__(self, state_shape, n_actions, exploit=False):
-        self.memory = deque(maxlen=1000)
+    def __init__(self, state_shape, n_actions, epsilon=0.1):
+        self.memory = deque(maxlen=10000)
         self.n_actions = n_actions
         self.state_shape = state_shape
-        
         self.gamma = 0.99
-        
-        if exploit:
-            self.epsilon = 0.1
-        else:
-            self.epsilon = 1.0
-        self.epsilon_decay = 0.995
-        self.epsilon_min = 0.01
+        self.epsilon = epsilon
         self.learning_rate = 0.0001
 
     def new_model(self):
         model = Sequential()
 
+        model.add(Conv2D(16,
+            kernel_size=(4, 4),
+            strides=(2, 2),
+            activation="relu",
+            input_shape=self.state_shape))
+        
         model.add(Conv2D(32,
-            kernel_size=(8, 4),
+            kernel_size=(4, 4),
             strides=(2, 2),
             activation="relu",
             input_shape=self.state_shape))
 
-        model.add(Conv2D(64,
-            kernel_size=(4, 4),
-            strides=(2, 2),
-            activation="relu"))
-        
-        model.add(Conv2D(64,
-            kernel_size=(3, 3),
-            strides=(1, 1),
-            activation="relu"))
-
         model.add(Flatten())
-        model.add(Dense(512, activation="relu"))
+        model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
         model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam(lr=self.learning_rate))
@@ -68,6 +57,8 @@ class Agent:
         return self._predict(state)
     
     def remember(self, state, action, reward, next_state, done):
+        state = np.moveaxis(state, 0, -1)
+        next_state = np.moveaxis(next_state, 0, -1)
         new_row = np.array([state, action, reward, next_state, done])
         self.memory.append(new_row)
         
@@ -101,10 +92,8 @@ class Agent:
         
         self.model.fit(states, target_Q_values, epochs=1, verbose=0)
             
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-    
     def _predict(self, state):
+        state = np.moveaxis(state, 0, -1)
         input_state = np.stack([state])
         Q_values = self.model.predict(input_state)[0]
         return Q_values.argmax(axis=0)

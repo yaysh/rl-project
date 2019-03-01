@@ -1,4 +1,5 @@
 import numpy as np
+from collections import deque
 
 def stack(array):
     stacked_array = np.stack(array[0])
@@ -10,13 +11,14 @@ def one_hot_encode(size, values):
     vector = np.array(values, dtype=int).reshape(-1)
     return np.eye(size, dtype=int)[vector]
 
-def update_state_arr(state, frame):
-    state = np.delete(state, 0, axis=2)
-    state = np.concatenate((state, frame[..., np.newaxis]), axis=2)
-    return state
+def update_state_arr(state, frame_1, frame_2):
+    next_state = state.copy()
+    next_state.append(frame_1)
+    next_state.append(frame_2)
+    return next_state
 
 def create_state_arr(frame):
-    state = frame[..., np.newaxis]
-    for i in range(2):
-        state = np.append(state, state, axis=2)
-    return np.stack(state)
+    state = deque(maxlen=4)
+    for _ in range(4):
+        state.append(frame)
+    return state

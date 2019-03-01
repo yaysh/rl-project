@@ -7,9 +7,10 @@ class Logger:
         self.log_queue = deque(maxlen=n_rows)
         self.header = header
     
-    
-    def log(self, text):
+    def add(self, text):
         self.log_queue.append(text)
+    
+    def log(self):
         display.clear_output(wait=True)
         if self.header != None:
             print(self.header)

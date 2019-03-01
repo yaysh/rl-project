@@ -16,7 +16,7 @@ class Agent:
         self.state_shape = state_shape
         self.gamma = 0.99
         self.epsilon = epsilon
-        self.learning_rate = 0.0001
+        #self.learning_rate = 0.0001
 
     def new_model(self):
         model = Sequential()
@@ -37,7 +37,7 @@ class Agent:
         model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam(lr=self.learning_rate))
+        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam())#lr=self.learning_rate))
 
         self.model = model
         
@@ -70,21 +70,19 @@ class Agent:
     
     def _fit(self, batch, gamma, n_outputs):
         # Data "wrangling"
-        states, actions, rewards, next_states, done = np.hsplit(batch, batch.shape[1])
-        actions = util.one_hot_encode(n_outputs, actions[:, 0]) > 0 
-        rewards = rewards[:, 0]
-        done = done[:, 0]
-        states = util.stack(states)
-        next_states = util.stack(next_states)
+        states, actions, rewards, next_states, done = np.array(np.split(batch, batch.shape[1], axis=1))[:, :, 0]
+        actions = util.one_hot_encode(n_outputs, actions) 
+        states = np.stack(states)
+        next_states = np.stack(next_states)
         
         # Predict future
         predicted_future_Q_values = self.model.predict(next_states)
-        predicted_future_rewards = np.amax(predicted_future_Q_values, axis=1)
+        predicted_future_rewards = predicted_future_Q_values.max(axis=1)
         
         # Calculate expected q values
-        not_done_target = np.logical_not(done) * (rewards + self.gamma * predicted_future_rewards)
+        not_done_target = np.logical_not(done) * np.add(rewards, np.multiply(predicted_future_rewards, self.gamma))
         done_targets = done * rewards
-        targets = not_done_target + done_targets
+        targets = np.add(not_done_target, done_targets)
         
         # Set expected q values for the actions in question
         target_Q_values = self.model.predict(states)

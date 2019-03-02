@@ -11,12 +11,11 @@ import ai_util as util
 class Agent:
     
     def __init__(self, state_shape, n_actions, epsilon=0.1):
-        self.memory = deque(maxlen=10000)
+        self.memory = deque(maxlen=100000)
         self.n_actions = n_actions
         self.state_shape = state_shape
         self.gamma = 0.99
         self.epsilon = epsilon
-        #self.learning_rate = 0.0001
 
     def new_model(self):
         model = Sequential()
@@ -37,7 +36,7 @@ class Agent:
         model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam())#lr=self.learning_rate))
+        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam())
 
         self.model = model
         

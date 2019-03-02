@@ -54,33 +54,29 @@ class Agent:
     def act(self, state):
         if random.random() <= self.epsilon:
             return random.randrange(self.n_actions)
-        return self._predict(state)
+        state = np.moveaxis(state, 0, -1)
+        Q_values = self.model.predict(np.stack([state]))[0]
+        return Q_values.argmax(axis=0)
     
     def remember(self, state, action, reward, next_state, done):
         state = np.moveaxis(state, 0, -1)
         next_state = np.moveaxis(next_state, 0, -1)
-        new_row = np.array([state, action, reward, next_state, done])
-        self.memory.append(new_row)
+        self.memory.append(np.array([state, action, reward, next_state, done]))
         
     def replay(self, batch_size):
         if len(self.memory) > batch_size:
-            batch = random.sample(self.memory, batch_size)
-            batch = np.array(batch)
-            self._fit(batch, self.gamma, self.n_actions)
+            batch = np.array(random.sample(self.memory, batch_size))
+            self._fit(self.model, batch, self.gamma, self.n_actions)
     
-    def _fit(self, batch, gamma, n_outputs):
-        # Data "wrangling"
-        states, actions, rewards, next_states, done = np.array(np.split(batch, batch.shape[1], axis=1))[:, :, 0]
-        actions = util.one_hot_encode(n_outputs, actions) 
-        states = np.stack(states)
-        next_states = np.stack(next_states)
+    def _fit(self, model, batch, gamma, n_outputs):
+        states, actions, rewards, next_states, done = self._split_batch(batch, n_outputs)
         
         # Predict future
-        predicted_future_Q_values = self.model.predict(next_states)
+        predicted_future_Q_values = model.predict(next_states)
         predicted_future_rewards = predicted_future_Q_values.max(axis=1)
         
         # Calculate expected q values
-        not_done_target = np.logical_not(done) * np.add(rewards, np.multiply(predicted_future_rewards, self.gamma))
+        not_done_target = np.logical_not(done) * np.add(rewards, np.multiply(predicted_future_rewards, gamma))
         done_targets = done * rewards
         targets = np.add(not_done_target, done_targets)
         
@@ -88,12 +84,13 @@ class Agent:
         target_Q_values = self.model.predict(states)
         target_Q_values[actions] = targets
         
-        self.model.fit(states, target_Q_values, epochs=1, verbose=0)
+        model.fit(states, target_Q_values, epochs=1, verbose=0)
             
-    def _predict(self, state):
-        state = np.moveaxis(state, 0, -1)
-        input_state = np.stack([state])
-        Q_values = self.model.predict(input_state)[0]
-        return Q_values.argmax(axis=0)
+    def _split_batch(self, batch, n_outputs):
+        states, actions, rewards, next_states, done = np.array(np.split(batch, batch.shape[1], axis=1))[:, :, 0]
+        actions = util.one_hot_encode(n_outputs, actions) 
+        states = np.stack(states)
+        next_states = np.stack(next_states)
+        return (states, actions, rewards, next_states, done)
     
      

@@ -1,13 +1,10 @@
 from keras.layers.core import Flatten
-from keras.layers import Dense, Conv2D, MaxPooling2D
+from keras.layers import Dense, Conv2D
 from keras.models import Sequential, load_model
-from keras.initializers import RandomUniform
 from keras.optimizers import Adam
 import numpy as np
 import random
 from numpy_ringbuffer import RingBuffer
-
-import ai_util as util
 
 class Agent:
     

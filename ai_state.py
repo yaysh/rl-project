@@ -1,13 +1,13 @@
 import numpy as np
 from collections import deque
 
-def update_state_arr(state, frame_1, frame_2):
+def update(state, frame_1, frame_2):
     next_state = state.copy()
     next_state.append(frame_1)
     next_state.append(frame_2)
     return next_state
 
-def create_state_arr(frame):
+def create(frame):
     state = deque(maxlen=4)
     for _ in range(4):
         state.append(frame)

@@ -10,7 +10,6 @@ def show_state(observation, env_id, step=0, info=""):
         frames = list()
         for i, val in enumerate([0.1, 0.2, 0.3, 0.4]):
             frames.append(np.multiply(observation[i], val))
-        print(np.array(frames).shape)
         observation = np.sum(frames, axis=0)
         
     plt.imshow(observation, cmap='gray')

@@ -5,14 +5,20 @@ from keras.initializers import RandomUniform
 from keras.optimizers import Adam
 import numpy as np
 import random
-from collections import deque
+from numpy_ringbuffer import RingBuffer
 
 import ai_util as util
 
 class Agent:
     
     def __init__(self, state_shape, n_actions, epsilon=0.1):
-        self.memory = deque(maxlen=10000)
+        self.capacity = 10000
+        self.state_memory = RingBuffer(capacity=self.capacity, dtype=(np.uint8, state_shape))
+        self.next_state_memory = RingBuffer(capacity=self.capacity, dtype=(np.uint8, state_shape))
+        self.action_memory = RingBuffer(capacity=self.capacity, dtype=np.uint8)
+        self.reward_memory = RingBuffer(capacity=self.capacity, dtype=np.uint16)
+        self.done_memory = RingBuffer(capacity=self.capacity, dtype=np.bool)
+        
         self.n_actions = n_actions
         self.state_shape = state_shape
         self.gamma = 0.99
@@ -54,6 +60,7 @@ class Agent:
     def act(self, state):
         if random.random() <= self.epsilon:
             return random.randrange(self.n_actions)
+        
         state = np.moveaxis(state, 0, -1)
         Q_values = self.model.predict(np.stack([state]))[0]
         return Q_values.argmax(axis=0)
@@ -61,16 +68,28 @@ class Agent:
     def remember(self, state, action, reward, next_state, done):
         state = np.moveaxis(state, 0, -1)
         next_state = np.moveaxis(next_state, 0, -1)
-        self.memory.append(np.array([state, action, reward, next_state, done]))
+        
+        self.state_memory.append(state)
+        self.next_state_memory.append(next_state)
+        self.action_memory.append(action)
+        self.reward_memory.append(reward)
+        self.done_memory.append(done)
         
     def replay(self, batch_size):
-        if len(self.memory) > batch_size:
-            batch = np.array(random.sample(self.memory, batch_size))
-            self._fit(self.model, batch, self.gamma, self.n_actions)
+        memory_size = len(self.state_memory)
+        if memory_size > batch_size:
+            indecies = np.random.choice(memory_size, batch_size, replace=False)
+            
+            states = self.state_memory[indecies]
+            next_states = self.next_state_memory[indecies]
+            actions = self.action_memory[indecies]
+            actions = util.one_hot_encode(self.n_actions, actions)
+            rewards = self.reward_memory[indecies]
+            done = self.done_memory[indecies]
+            
+            self._fit(self.model, self.gamma, states, next_states, actions, rewards, done)
     
-    def _fit(self, model, batch, gamma, n_outputs):
-        states, actions, rewards, next_states, done = self._split_batch(batch, n_outputs)
-        
+    def _fit(self, model, gamma, states, next_states, actions, rewards, done):
         # Predict future
         predicted_future_Q_values = model.predict(next_states)
         predicted_future_rewards = predicted_future_Q_values.max(axis=1)
@@ -86,11 +105,3 @@ class Agent:
         
         model.fit(states, target_Q_values, epochs=1, verbose=0)
             
-    def _split_batch(self, batch, n_outputs):
-        states, actions, rewards, next_states, done = np.array(np.split(batch, batch.shape[1], axis=1))[:, :, 0]
-        actions = util.one_hot_encode(n_outputs, actions) 
-        states = np.stack(states)
-        next_states = np.stack(next_states)
-        return (states, actions, rewards, next_states, done)
-    
-     

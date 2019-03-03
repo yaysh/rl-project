@@ -1,6 +1,7 @@
 from keras.layers.core import Flatten
 from keras.layers import Dense, Conv2D, MaxPooling2D
 from keras.models import Sequential, load_model
+from keras.initializers import RandomUniform
 from keras.optimizers import Adam
 import numpy as np
 import random
@@ -11,7 +12,7 @@ import ai_util as util
 class Agent:
     
     def __init__(self, state_shape, n_actions, epsilon=0.1):
-        self.memory = deque(maxlen=100000)
+        self.memory = deque(maxlen=10000)
         self.n_actions = n_actions
         self.state_shape = state_shape
         self.gamma = 0.99
@@ -36,7 +37,7 @@ class Agent:
         model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(loss="categorical_crossentropy", metrics=["accuracy"], optimizer=Adam())
+        model.compile(loss="mse", optimizer=Adam())
 
         self.model = model
         

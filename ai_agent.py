@@ -83,7 +83,6 @@ class Agent:
             states = self.state_memory[indecies]
             next_states = self.next_state_memory[indecies]
             actions = self.action_memory[indecies]
-            actions = util.one_hot_encode(self.n_actions, actions)
             rewards = self.reward_memory[indecies]
             done = self.done_memory[indecies]
             
@@ -100,8 +99,8 @@ class Agent:
         targets = np.add(not_done_target, done_targets)
         
         # Set expected q values for the actions in question
-        target_Q_values = self.model.predict(states)
-        target_Q_values[actions] = targets
+        target_Q_values = model.predict(states)
+        target_Q_values[range(len(actions)), actions] = targets
         
         model.fit(states, target_Q_values, epochs=1, verbose=0)
             

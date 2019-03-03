@@ -1,9 +1,6 @@
 import numpy as np
 from collections import deque
 
-def one_hot_encode(size, values):
-    return np.eye(size, dtype=np.bool)[values]
-
 def update_state_arr(state, frame_1, frame_2):
     next_state = state.copy()
     next_state.append(frame_1)

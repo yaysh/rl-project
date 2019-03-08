@@ -2,14 +2,15 @@ from keras.layers.core import Flatten
 from keras.layers import Dense, Conv2D
 from keras.models import Sequential, load_model
 from keras.optimizers import Adam
+from keras.initializers import RandomUniform
 import numpy as np
 import random
 from numpy_ringbuffer import RingBuffer
 
 class Agent:
     
-    def __init__(self, state_shape, n_actions, epsilon=0.1):
-        self.capacity = 10000
+    def __init__(self, state_shape, n_actions, epsilon=None):
+        self.capacity = 100000
         self.state_memory = RingBuffer(capacity=self.capacity, dtype=(np.uint8, state_shape))
         self.next_state_memory = RingBuffer(capacity=self.capacity, dtype=(np.uint8, state_shape))
         self.action_memory = RingBuffer(capacity=self.capacity, dtype=np.uint8)
@@ -19,7 +20,18 @@ class Agent:
         self.n_actions = n_actions
         self.state_shape = state_shape
         self.gamma = 0.99
-        self.epsilon = epsilon
+        
+        if epsilon is None:
+            self.epsilon = 1.0
+            self.epsilon_decay = 0.9997
+            self.epsilon_min = 0.05
+            self.decay_epsilon = True
+        else:
+            self.epsilon = epsilon
+            self.decay_epsilon = False
+        
+        
+        self.q = None
 
     def new_model(self):
         model = Sequential()
@@ -40,7 +52,7 @@ class Agent:
         model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(loss="mse", optimizer=Adam())
+        model.compile(loss="mse", optimizer=Adam())#lr=0.1))
 
         self.model = model
         
@@ -53,6 +65,7 @@ class Agent:
         
     def load_model(self, name):
         self.model = load_model(name) 
+        #self.model.optimizer.lr.assign(0.001)
         
     def act(self, state):
         if random.random() <= self.epsilon:
@@ -84,6 +97,11 @@ class Agent:
             done = self.done_memory[indecies]
             
             self._fit(self.model, self.gamma, states, next_states, actions, rewards, done)
+            
+            if self.decay_epsilon == True:
+                if self.epsilon <= self.epsilon_min:
+                    self.epsilon = 1.0
+                self.epsilon *= self.epsilon_decay
     
     def _fit(self, model, gamma, states, next_states, actions, rewards, done):
         # Predict future
@@ -91,12 +109,13 @@ class Agent:
         predicted_future_rewards = predicted_future_Q_values.max(axis=1)
         
         # Calculate expected q values
-        not_done_target = np.logical_not(done) * np.add(rewards, np.multiply(predicted_future_rewards, gamma))
+        not_done_targets = np.logical_not(done) * np.add(rewards, np.multiply(predicted_future_rewards, gamma))
         done_targets = done * rewards
-        targets = np.add(not_done_target, done_targets)
+        targets = np.add(not_done_targets, done_targets)
         
         # Set expected q values for the actions in question
         target_Q_values = model.predict(states)
+        self.q = target_Q_values
         target_Q_values[range(len(actions)), actions] = targets
         
         model.fit(states, target_Q_values, epochs=1, verbose=0)

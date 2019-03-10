@@ -22,6 +22,9 @@ file_handler = FileHandler()
 print(file_handler.steps)
 
 
+import matplotlib.pyplot as plt
+
+
 def train(env, agent, n_episodes=100000, model_name="model.h5", save_interval=25):
     logger = Logger(10, "episode | states | score | step time | epi time | epsilon")
     backup_save_interval = 28
@@ -31,13 +34,17 @@ def train(env, agent, n_episodes=100000, model_name="model.h5", save_interval=25
         steps = file_handler.steps
         agent.epsilon = file_handler.epsilon
         agent.epsilon_decay = file_handler.decay_rate
+        rewards = file_handler.rewards
+        epsilons = file_handler.epsilon
     else:
         agent.new_model()
         epsilon = agent.epsilon
         epsilon_decay = agent.epsilon_decay
         steps = 0
-        file_handler.write_to_file(epsilon_decay, steps, epsilon)
-    
+        rewards = []
+        epsilons = []
+        file_handler.write_to_file(epsilon_decay, steps, epsilon, rewards, epsilons)
+
     for episode in range(n_episodes):
         
         frame = env.reset()
@@ -45,20 +52,28 @@ def train(env, agent, n_episodes=100000, model_name="model.h5", save_interval=25
         score = 0
         
         start_time = time.time()
-        for t in range(5000):
+        done = False
+        t = 0
+        
+        while not done:
             # display.show_state(state, env.spec.id, t, score)
             #env.render()
+            t+=1
             action = agent.act(state)
             next_state, reward, done = step(env, action, state)
             agent.remember(state, action, reward, next_state, done)
-            
-            steps += 1
             state = next_state
             score += reward
-            if done: 
-                break
-
-        agent.replay(batch_size=128)      
+            # if done: 
+            #     break
+        steps += 1
+        rewards.append(score)
+        epsilons.append(agent.epsilon)
+        agent.replay(batch_size=128, score=score, epsilon=agent.epsilon)   
+        
+        if (episode+1) % 8000 == 0:
+            plt.plot(rewards)
+            plt.show()
         duration = time.time() - start_time
         # logger.log("{:>7d} | {:>6d} | {:>5d} | {:>9.5f} | {:>8.5f} | {:>7.5f}"
         #        .format(episode+1, t, score, duration/t, duration, agent.epsilon))
@@ -71,22 +86,22 @@ def train(env, agent, n_episodes=100000, model_name="model.h5", save_interval=25
             print("Saving model, please don't interrupt")
             epsilon = agent.epsilon
             epsilon_decay = agent.epsilon_decay
-            file_handler.write_to_file(epsilon_decay, steps, epsilon)
-            agent.save_model("test.h5")
+            file_handler.write_to_file(epsilon_decay, steps, epsilon, rewards, epsilons)
+            agent.save_model(model_name)
             print("Model has been saved")
         elif episode % backup_save_interval == 0:
             print("Saving backup, please don't interrupt")
             epsilon = agent.epsilon
             epsilon_decay = agent.epsilon_decay
-            file_handler.write_to_file(epsilon_decay, steps, epsilon)
-            agent.save_model('backup2.h5')
+            file_handler.write_to_file(epsilon_decay, steps, epsilon, rewards, epsilons)
+            agent.save_model('with-graph-backup.h5')
             print("Model has been saved")
             
     print("Saving model, please don't interrupt")
     agent.save_model(model_name)
     epsilon = agent.epsilon
     epsilon_decay = agent.epsilon_decay
-    file_handler.write_to_file(epsilon_decay, steps, epsilon)
+    file_handler.write_to_file(epsilon_decay, steps, epsilon, epsilons)
     print("Model has been saved")
         
 
@@ -105,5 +120,5 @@ env = gym.make("BreakoutDeterministic-v4")
 state_shape, n_actions = calc_dimensions(env)
 
 agent = Agent(state_shape, n_actions)
-model_name = "test.h5"
+model_name = "with-graph.h5"
 train(env, agent, model_name=model_name)

@@ -1,0 +1,4 @@
+tensorboard --logdir=.log/run_1
+
+
+localhost:6006

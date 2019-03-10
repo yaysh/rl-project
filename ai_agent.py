@@ -4,6 +4,7 @@ from keras.models import Sequential, load_model
 from keras.optimizers import Adam
 from keras.initializers import RandomUniform
 import numpy as np
+from custom_tensorboard import TensorBoardCustom
 import random
 from numpy_ringbuffer import RingBuffer
 
@@ -16,7 +17,7 @@ class Agent:
         self.action_memory = RingBuffer(capacity=self.capacity, dtype=np.uint8)
         self.reward_memory = RingBuffer(capacity=self.capacity, dtype=np.uint16)
         self.done_memory = RingBuffer(capacity=self.capacity, dtype=np.bool)
-        
+        self.tensorboard = TensorBoardCustom('.log/' + 'run_1' + '/')
         self.n_actions = n_actions
         self.state_shape = state_shape
         self.gamma = 0.99
@@ -24,7 +25,7 @@ class Agent:
         if epsilon is None:
             self.epsilon = 1.0
             self.epsilon_decay = 0.9997
-            self.epsilon_min = 0.4
+            self.epsilon_min = 0.3
             self.decay_epsilon = True
         else:
             self.epsilon = epsilon
@@ -85,8 +86,11 @@ class Agent:
         self.reward_memory.append(reward)
         self.done_memory.append(done)
         
-    def replay(self, batch_size):
+    def replay(self, batch_size, score, epsilon):
         memory_size = len(self.state_memory)
+        self.tensorboard.episode_score = score
+        self.tensorboard.done = True
+        self.tensorboard.epsilon = epsilon
         if memory_size > batch_size:
             indecies = np.random.choice(memory_size, batch_size, replace=False)
             
@@ -99,9 +103,13 @@ class Agent:
             self._fit(self.model, self.gamma, states, next_states, actions, rewards, done)
             
             if self.decay_epsilon == True:
+                #self.epsilon *= self.epsilon_decay
+                #Epsilon decays from 1.0 to 0.3 over 8000 episodes
+                #self.epsilon -= 0.0000875
+                #Epsilon decays from 1.0 to 0.3 over 20 000 episodes
+                self.epsilon -= 0.000035
                 if self.epsilon <= self.epsilon_min:
                     self.epsilon = self.epsilon_min
-                self.epsilon *= self.epsilon_decay
     
     def _fit(self, model, gamma, states, next_states, actions, rewards, done):
         # Predict future
@@ -118,5 +126,5 @@ class Agent:
         self.q = target_Q_values
         target_Q_values[range(len(actions)), actions] = targets
         
-        model.fit(states, target_Q_values, epochs=1, verbose=0)
+        model.fit(states, target_Q_values, epochs=1, verbose=0, callbacks=[self.tensorboard])
             

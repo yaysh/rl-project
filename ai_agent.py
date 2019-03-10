@@ -24,7 +24,7 @@ class Agent:
         if epsilon is None:
             self.epsilon = 1.0
             self.epsilon_decay = 0.9997
-            self.epsilon_min = 0.05
+            self.epsilon_min = 0.4
             self.decay_epsilon = True
         else:
             self.epsilon = epsilon
@@ -52,7 +52,7 @@ class Agent:
         model.add(Dense(256, activation="relu"))
         model.add(Dense(self.n_actions, activation="linear"))
 
-        model.compile(loss="mse", optimizer=Adam())#lr=0.1))
+        model.compile(loss="mse", optimizer=Adam())
 
         self.model = model
         
@@ -65,7 +65,7 @@ class Agent:
         
     def load_model(self, name):
         self.model = load_model(name) 
-        #self.model.optimizer.lr.assign(0.001)
+
         
     def act(self, state):
         if random.random() <= self.epsilon:
@@ -100,7 +100,7 @@ class Agent:
             
             if self.decay_epsilon == True:
                 if self.epsilon <= self.epsilon_min:
-                    self.epsilon = 1.0
+                    self.epsilon = self.epsilon_min
                 self.epsilon *= self.epsilon_decay
     
     def _fit(self, model, gamma, states, next_states, actions, rewards, done):
